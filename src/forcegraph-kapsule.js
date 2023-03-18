@@ -600,6 +600,9 @@ export default Kapsule({
   init(threeObj, state) {
     // Main three object to manipulate
     state.graphScene = threeObj;
+
+
+    console.info('loaded customized EdgePathBundling version of three-forcegraph');
   },
 
   update(state, changedProps) {

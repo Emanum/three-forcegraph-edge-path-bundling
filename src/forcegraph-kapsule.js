@@ -156,6 +156,7 @@ export default Kapsule({
     linkDirectionalParticleWidth: { default: 0.5 },
     linkDirectionalParticleColor: {},
     linkDirectionalParticleResolution: { default: 4 }, // how many slice segments in the particle sphere's circumference
+    linkBundling: { default: 'none' }, // none or edgepath
     forceEngine: { default: 'd3' }, // d3 or ngraph
     d3AlphaMin: { default: 0 },
     d3AlphaDecay: { default: 0.0228, triggerUpdate: false, onChange(alphaDecay, state) { state.d3ForceLayout.alphaDecay(alphaDecay) }},
@@ -225,6 +226,9 @@ export default Kapsule({
           (isD3Sim && state.d3AlphaMin > 0 && state.d3ForceLayout.alpha() < state.d3AlphaMin)
         ) {
           state.engineRunning = false; // Stop ticking graph
+          if (state.linkBundling && state.linkBundling !== 'none') {
+            updateLinkBundling();
+          }
           state.onEngineStop();
         } else {
           state.layout[isD3Sim ? 'tick' : 'step'](); // Tick it
@@ -460,6 +464,11 @@ export default Kapsule({
           arrowObj.parent.localToWorld(headVec); // lookAt requires world coords
           arrowObj.lookAt(headVec);
         });
+      }
+
+      function updateLinkBundling(){
+        console.info('edgePathBundling triggered, type set to ' + state.linkBundling);
+
       }
 
       function updatePhotons() {

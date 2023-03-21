@@ -31,6 +31,8 @@ type DagMode = 'td' | 'bu' | 'lr' | 'rl' | 'zout' | 'zin' | 'radialout' | 'radia
 
 type ForceEngine = 'd3' | 'ngraph';
 
+type LinkBundling = 'none' | 'edgepath';
+
 interface ForceFn {
   (alpha: number): void;
   initialize?: (nodes: NodeObject[], ...args: any[]) => void;
@@ -123,6 +125,8 @@ export declare class ThreeForceGraphGeneric<ChainableInstance> extends Object3D 
   linkDirectionalParticleResolution(): number;
   linkDirectionalParticleResolution(resolution: number): ChainableInstance;
   emitParticle(link: LinkObject): ChainableInstance;
+  linkBundling(): LinkBundling;
+  linkBundling(bundling: LinkBundling): ChainableInstance;
 
   // Force engine configuration
   forceEngine(): ForceEngine;

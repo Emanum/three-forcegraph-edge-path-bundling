@@ -61,7 +61,7 @@ import threeDigest from './utils/three-digest';
 import { emptyObject } from './utils/three-gc';
 import { autoColorObjects, colorStr2Hex, colorAlpha } from './utils/color-utils';
 import getDagDepths from './utils/dagDepths';
-
+import {edgePathBundling} from "./utils/edge-path-utils.js";
 //
 
 const DAG_LEVEL_NODE_RATIO = 2;
@@ -467,8 +467,10 @@ export default Kapsule({
       }
 
       function updateLinkBundling(){
-        console.info('edgePathBundling triggered, type set to ' + state.linkBundling);
-
+        console.info('link bundling triggered, type set to ' + state.linkBundling);
+        if (state.linkBundling.toLowerCase() === "edgepath"){
+          edgePathBundling(state.graphData);
+        }
       }
 
       function updatePhotons() {

@@ -15,7 +15,8 @@ import {
     LineBasicMaterial,
     QuadraticBezierCurve3,
     CubicBezierCurve3,
-    Box3
+    Box3,
+    CatmullRomCurve3
 } from 'three';
 
 import {dijkstra} from "./dijkstra.js";
@@ -62,23 +63,26 @@ let weight = new WeakMap();
  *             ...
  *         ]
  *     }
+ * @param scene {THREE.Scene}
+ *
  * @param options
  *    options: {
  *       maxDistortion: 0.5,
  *       edgeWeightFactor: 0.5,
  *    }
  */
-function edgePathBundling(graphData, options) {
+function edgePathBundling(graphData, scene, options) {
     options = options || {};
     let edgeWeightFactor = options.edgeWeightFactor || 0.5;
     let maxDistortion = options.maxDistortion || 10;
+    let catmullRomCurve_Points = options.catmullRomCurvePoints || 10;
 
     function calcControlPoints() {
         lock = new WeakMap();
         skip = new WeakMap();
         weight = new WeakMap();
         let sortedEdges = [];
-        let controlPoints = new WeakMap();
+        let controlPoints = new Map();
 
         function prepare() {
             for (let i = 0; i < graphData.links.length; i++) {
@@ -132,8 +136,54 @@ function edgePathBundling(graphData, options) {
 
     let controlPoints = calcControlPoints();
 
+    //filter out nodes with only one control point
+    let filteredControlPoints = new Map();
+    for (let [key, value] of controlPoints) {
+        if (value.length > 1) {
+            filteredControlPoints.set(key, value);
+        }
+    }
+    //group filtered control points by number of control points
+    // let groupedControlPoints = new Map();
+    // for (let [key, value] of filteredControlPoints) {
+    //     if (groupedControlPoints.has(value.length)) {
+    //         groupedControlPoints.get(value.length).push(key);
+    //     } else {
+    //         groupedControlPoints.set(value.length, [key]);
+    //     }
+    // }
 
-    console.log(controlPoints);
+    console.info("filteredControlPoints", filteredControlPoints);
+
+    /**
+     *
+     * @param filteredControlPoints
+     * filteredControlPoints: Map {
+     *      key = edge
+     *      value = array of nodes that are control points
+     *  }
+     * @param graphData
+     */
+    function updateThreejsEdges(filteredControlPoints, graphData) {
+        for (let [edge, controlNodes] of filteredControlPoints) {
+            let controlVectors = [];
+            for (let i = 0; i < controlNodes.length; i++) {
+                controlVectors.push(new Vector3(controlNodes[i].x, controlNodes[i].y, controlNodes[i].z));
+            }
+            let curve = new CatmullRomCurve3(controlVectors);
+            //curveType – Type of the curve. Default is centripetal. Other options are chordal and catmullrom.
+            const points = curve.getPoints(catmullRomCurve_Points * controlVectors.length);
+            const geometry = new BufferGeometry().setFromPoints( points );
+            const material = new LineBasicMaterial({color: 0x0000ff});
+            scene.remove(edge.__lineObj);
+            edge.__lineObj = new Line(geometry, material);
+            scene.add(edge.__lineObj);
+        }
+    }
+
+    updateThreejsEdges(filteredControlPoints, graphData);
+
+    console.log(graphData);
 }
 
 function euclideanDistance(source, target) {

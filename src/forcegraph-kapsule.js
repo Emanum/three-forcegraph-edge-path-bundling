@@ -469,8 +469,9 @@ export default Kapsule({
       function updateLinkBundling(){
         console.info('link bundling triggered, type set to ' + state.linkBundling);
         if (state.linkBundling.toLowerCase() === "edgepath"){
-          edgePathBundling(state.graphData);
+          edgePathBundling(state.graphData, state.graphScene, {});
         }
+        console.info(state.graphData);
       }
 
       function updatePhotons() {

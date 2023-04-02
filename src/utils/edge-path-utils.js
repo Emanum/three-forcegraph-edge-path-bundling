@@ -19,11 +19,7 @@ import {
     CatmullRomCurve3
 } from 'three';
 
-import {dijkstra} from "./dijkstra.js";
-
-let lock = new WeakMap();
-let skip = new WeakMap();
-let weight = new WeakMap();
+import { calcControlPoints } from './edge-path-control-point-utils.js';
 
 /**
  *
@@ -73,89 +69,50 @@ let weight = new WeakMap();
  */
 function edgePathBundling(graphData, scene, options) {
     options = options || {};
-    let edgeWeightFactor = options.edgeWeightFactor || 0.5;
-    let maxDistortion = options.maxDistortion || 10;
-    let catmullRomCurve_Points = options.catmullRomCurvePoints || 10;
+    options.edgeWeightFactor = options.edgeWeightFactor || 0.5;
+    options.maxDistortion = options.maxDistortion || 10;
+    options.catmullRomCurvePoints = options.catmullRomCurvePoints || 10;
 
-    function calcControlPoints() {
-        lock = new WeakMap();
-        skip = new WeakMap();
-        weight = new WeakMap();
-        let sortedEdges = [];
-        let controlPoints = new Map();
+    // Create a new web worker instance that loads the edgePathBundlingWorker.js file
+    // const worker= new Worker(calcControlPoints, { type: "module" });
+    const worker = new Worker('../../webworker/edge-path-control-point-utils.js');
+    // const worker = new Worker('./edge-path-control-point-utils.js', { type: "module" });
 
-        function prepare() {
-            for (let i = 0; i < graphData.links.length; i++) {
-                const link = graphData.links[i];
-                lock.set(link, false);
-                skip.set(link, false);
-                weight.set(link, Math.pow(euclideanDistance(link.source, link.target), edgeWeightFactor));
+    // Listen for messages from the worker
+    worker.onmessage = function (event) {
+        let controlPoints = event.data;
+
+        //filter out nodes with only one control point
+        let filteredControlPoints = new Map();
+        for (let [key, value] of controlPoints) {
+            if (value.length > 1) {
+                filteredControlPoints.set(key, value);
             }
+        }
+        console.info("filteredControlPoints", filteredControlPoints);
+        updateThreejsEdges(filteredControlPoints, graphData);
 
-            //add weight as property to link
-            //sort weight desc by value and store in new array
-            for (let i = 0; i < graphData.links.length; i++) {
-                const link = graphData.links[i];
-                link.weight = weight.get(link);
-                sortedEdges.push(link);
-            }
-            sortedEdges.sort(function (a, b) {
-                return b.weight - a.weight;
+        console.log(graphData);
+    };
+
+    function transformLinksToBasicObject(links) {
+        let linksObj = [];
+        for (let i = 0; i < links.length; i++) {
+            let link = links[i];
+            linksObj.push({
+                source: {"id": link.source.id, "x": link.source.x, "y": link.source.y, "z": link.source.z},
+                target: {"id": link.target.id, "x": link.target.x, "y": link.target.y, "z": link.target.z},
+                weight: link.weight,
             });
         }
-
-        prepare();
-
-        //iterate over sorted edges array
-        for (let i = 0; i < sortedEdges.length; i++) {
-            let e = sortedEdges[i];
-            if (lock.get(e)) {
-                continue;
-            }
-            skip.set(e, true);
-            let s = e.source;
-            let t = e.target;
-
-            //Dijkstra's algorithm excluding edges in skip
-            let p = dijkstra(graphData.links, s, t, weight, skip);
-            if (p === null) {
-                skip.set(e, true);
-                continue;
-            }
-            if (p.length > maxDistortion * e.weight) {
-                skip.set(e, false);
-                continue;
-            }
-            for (let j = 0; j < p.length; j++) {
-                lock.set(p[j], true);
-            }
-            controlPoints.set(e, p);//should be p.getVertexCoordinates()
-        }
-        return controlPoints;
+        return linksObj;
     }
 
-    let controlPoints = calcControlPoints();
+    let links = transformLinksToBasicObject(graphData.links);
+    worker.postMessage({links, options });
 
-    //filter out nodes with only one control point
-    let filteredControlPoints = new Map();
-    for (let [key, value] of controlPoints) {
-        if (value.length > 1) {
-            filteredControlPoints.set(key, value);
-        }
-    }
-    //group filtered control points by number of control points
-    // let groupedControlPoints = new Map();
-    // for (let [key, value] of filteredControlPoints) {
-    //     if (groupedControlPoints.has(value.length)) {
-    //         groupedControlPoints.get(value.length).push(key);
-    //     } else {
-    //         groupedControlPoints.set(value.length, [key]);
-    //     }
-    // }
 
-    console.info("filteredControlPoints", filteredControlPoints);
-
-    /**
+       /**
      *
      * @param filteredControlPoints
      * filteredControlPoints: Map {
@@ -172,7 +129,7 @@ function edgePathBundling(graphData, scene, options) {
             }
             let curve = new CatmullRomCurve3(controlVectors);
             //curveType – Type of the curve. Default is centripetal. Other options are chordal and catmullrom.
-            const points = curve.getPoints(catmullRomCurve_Points * controlVectors.length);
+            const points = curve.getPoints(options.catmullRomCurvePoints * controlVectors.length);
             const geometry = new BufferGeometry().setFromPoints( points );
             const material = new LineBasicMaterial({color: 0x0000ff});
             let line = new Line(geometry, material);
@@ -182,13 +139,7 @@ function edgePathBundling(graphData, scene, options) {
         }
     }
 
-    updateThreejsEdges(filteredControlPoints, graphData);
 
-    console.log(graphData);
-}
-
-function euclideanDistance(source, target) {
-    return Math.sqrt(Math.pow(source.x - target.x, 2) + Math.pow(source.y - target.y, 2) + Math.pow(source.z - target.z, 2));
 }
 
 

@@ -1,23 +1,4 @@
-import {
-    Group,
-    Mesh,
-    MeshLambertMaterial,
-    Color,
-    BufferGeometry,
-    BufferAttribute,
-    Matrix4,
-    Vector3,
-    SphereGeometry,
-    CylinderGeometry,
-    TubeGeometry,
-    ConeGeometry,
-    Line,
-    LineBasicMaterial,
-    QuadraticBezierCurve3,
-    CubicBezierCurve3,
-    Box3,
-    CatmullRomCurve3
-} from 'three';
+import {BufferGeometry, CatmullRomCurve3, Line, LineBasicMaterial, Vector3} from 'three';
 
 import {dijkstra} from "./dijkstra.js";
 
@@ -73,98 +54,101 @@ let weight = new WeakMap();
  */
 function edgePathBundling(graphData, scene, options) {
     options = options || {};
-    let edgeWeightFactor = options.edgeWeightFactor || 0.5;
-    let maxDistortion = options.maxDistortion || 10;
-    let catmullRomCurve_Points = options.catmullRomCurvePoints || 10;
+    options.edgeWeightFactor = options.edgeWeightFactor || 0.5;
+    options.maxDistortion = options.maxDistortion || 10;
+    options.catmullRomCurvePoints = options.catmullRomCurvePoints || 10;
 
-    function calcControlPoints() {
-        lock = new WeakMap();
-        skip = new WeakMap();
-        weight = new WeakMap();
-        let sortedEdges = [];
-        let controlPoints = new Map();
+    function calcControlPoints(graphData, options) {
+        return new Promise((resolve, reject) => {
+            try {
+                let controlPoints = calcControlPointsSync(graphData, options);
+                resolve(controlPoints);
+            } catch (e) {
+                reject(e);
+            }
+        });
 
-        function prepare() {
-            for (let i = 0; i < graphData.links.length; i++) {
-                const link = graphData.links[i];
-                lock.set(link, false);
-                skip.set(link, false);
-                weight.set(link, Math.pow(euclideanDistance(link.source, link.target), edgeWeightFactor));
+        function calcControlPointsSync(graphData, options) {
+            lock = new WeakMap();
+            skip = new WeakMap();
+            weight = new WeakMap();
+            let sortedEdges = [];
+            let controlPoints = new Map();
+
+            function prepare() {
+                function euclideanDistance(source, target) {
+                    return Math.sqrt(Math.pow(source.x - target.x, 2) + Math.pow(source.y - target.y, 2) + Math.pow(source.z - target.z, 2));
+                }
+
+                for (let i = 0; i < graphData.links.length; i++) {
+                    const link = graphData.links[i];
+                    lock.set(link, false);
+                    skip.set(link, false);
+                    weight.set(link, Math.pow(euclideanDistance(link.source, link.target), options.edgeWeightFactor));
+                }
+
+                //add weight as property to link
+                //sort weight desc by value and store in new array
+                for (let i = 0; i < graphData.links.length; i++) {
+                    const link = graphData.links[i];
+                    link.weight = weight.get(link);
+                    sortedEdges.push(link);
+                }
+                sortedEdges.sort(function (a, b) {
+                    return b.weight - a.weight;
+                });
             }
 
-            //add weight as property to link
-            //sort weight desc by value and store in new array
-            for (let i = 0; i < graphData.links.length; i++) {
-                const link = graphData.links[i];
-                link.weight = weight.get(link);
-                sortedEdges.push(link);
-            }
-            sortedEdges.sort(function (a, b) {
-                return b.weight - a.weight;
-            });
-        }
+            prepare();
 
-        prepare();
-
-        //iterate over sorted edges array
-        for (let i = 0; i < sortedEdges.length; i++) {
-            let e = sortedEdges[i];
-            if (lock.get(e)) {
-                continue;
-            }
-            skip.set(e, true);
-            let s = e.source;
-            let t = e.target;
-
-            //Dijkstra's algorithm excluding edges in skip
-            let p = dijkstra(graphData.links, s, t, weight, skip);
-            if (p === null) {
+            //iterate over sorted edges array
+            for (let i = 0; i < sortedEdges.length; i++) {
+                let e = sortedEdges[i];
+                if (lock.get(e)) {
+                    continue;
+                }
                 skip.set(e, true);
-                continue;
-            }
-            if (p.length > maxDistortion * e.weight) {
-                skip.set(e, false);
-                continue;
-            }
-            for (let j = 0; j < p.length; j++) {
-                lock.set(p[j], true);
-            }
-            controlPoints.set(e, p);//should be p.getVertexCoordinates()
-        }
-        return controlPoints;
-    }
+                let s = e.source;
+                let t = e.target;
 
-    let controlPoints = calcControlPoints();
-
-    //filter out nodes with only one control point
-    let filteredControlPoints = new Map();
-    for (let [key, value] of controlPoints) {
-        if (value.length > 1) {
-            filteredControlPoints.set(key, value);
+                //Dijkstra's algorithm excluding edges in skip
+                let p = dijkstra(graphData.links, s, t, weight, skip);
+                if (p === null) {
+                    skip.set(e, true);
+                    continue;
+                }
+                if (p.length > options.maxDistortion * e.weight) {
+                    skip.set(e, false);
+                    continue;
+                }
+                for (let j = 0; j < p.length; j++) {
+                    lock.set(p[j], true);
+                }
+                controlPoints.set(e, p);//should be p.getVertexCoordinates()
+            }
+            return controlPoints;
         }
     }
-    //group filtered control points by number of control points
-    // let groupedControlPoints = new Map();
-    // for (let [key, value] of filteredControlPoints) {
-    //     if (groupedControlPoints.has(value.length)) {
-    //         groupedControlPoints.get(value.length).push(key);
-    //     } else {
-    //         groupedControlPoints.set(value.length, [key]);
-    //     }
-    // }
-
-    console.info("filteredControlPoints", filteredControlPoints);
 
     /**
      *
-     * @param filteredControlPoints
+     * @param controlPoints
      * filteredControlPoints: Map {
      *      key = edge
      *      value = array of nodes that are control points
      *  }
      * @param graphData
      */
-    function updateThreejsEdges(filteredControlPoints, graphData) {
+    function updateThreejsEdges(controlPoints, graphData) {
+        //filter out nodes with only one control point
+        let filteredControlPoints = new Map();
+        for (let [key, value] of controlPoints) {
+            if (value.length > 1) {
+                filteredControlPoints.set(key, value);
+            }
+        }
+        console.info("filteredControlPoints", filteredControlPoints);
+
         for (let [edge, controlNodes] of filteredControlPoints) {
             let controlVectors = [];
             for (let i = 0; i < controlNodes.length; i++) {
@@ -172,24 +156,29 @@ function edgePathBundling(graphData, scene, options) {
             }
             let curve = new CatmullRomCurve3(controlVectors);
             //curveType – Type of the curve. Default is centripetal. Other options are chordal and catmullrom.
-            const points = curve.getPoints(catmullRomCurve_Points * controlVectors.length);
-            const geometry = new BufferGeometry().setFromPoints( points );
+            const points = curve.getPoints(options.catmullRomCurvePoints * controlVectors.length);
+            const geometry = new BufferGeometry().setFromPoints(points);
             const material = new LineBasicMaterial({color: 0x0000ff});
             let line = new Line(geometry, material);
             scene.remove(edge.__lineObj);
             scene.add(line);
-            // edge.__lineObj = line; TODO anaylze why when setting the new object to the edge, only a straight line is drawn
+            // edge.__lineObj = line; TODO analyze why when setting the new object to the edge, only a straight line is drawn
         }
+
+        console.info("edgePathBundling finished", filteredControlPoints, graphData);
     }
 
-    updateThreejsEdges(filteredControlPoints, graphData);
+    calcControlPoints(graphData, options)
+        .then((controlPoints) => {
+            updateThreejsEdges(controlPoints, graphData);
+        })
+        .catch((e) => {
+            console.error('edgePathBundling failed', e);
+        });
 
-    console.log(graphData);
+    console.log("edgePathBundling started in background");
+
 }
 
-function euclideanDistance(source, target) {
-    return Math.sqrt(Math.pow(source.x - target.x, 2) + Math.pow(source.y - target.y, 2) + Math.pow(source.z - target.z, 2));
-}
 
-
-export { edgePathBundling };
+export {edgePathBundling};

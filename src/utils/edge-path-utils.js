@@ -175,9 +175,10 @@ function edgePathBundling(graphData, scene, options) {
             const points = curve.getPoints(catmullRomCurve_Points * controlVectors.length);
             const geometry = new BufferGeometry().setFromPoints( points );
             const material = new LineBasicMaterial({color: 0x0000ff});
+            let line = new Line(geometry, material);
             scene.remove(edge.__lineObj);
-            edge.__lineObj = new Line(geometry, material);
-            scene.add(edge.__lineObj);
+            scene.add(line);
+            // edge.__lineObj = line; TODO anaylze why when setting the new object to the edge, only a straight line is drawn
         }
     }
 

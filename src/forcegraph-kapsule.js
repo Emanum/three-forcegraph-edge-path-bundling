@@ -62,6 +62,7 @@ import { emptyObject } from './utils/three-gc';
 import { autoColorObjects, colorStr2Hex, colorAlpha } from './utils/color-utils';
 import getDagDepths from './utils/dagDepths';
 import {edgePathBundling} from "./utils/edge-path-utils.js";
+import {applyTreeLayout} from "./utils/tree-layout-utils.js";
 //
 
 const DAG_LEVEL_NODE_RATIO = 2;
@@ -82,7 +83,9 @@ export default Kapsule({
 
           fetch(jsonUrl).then(r => r.json()).then(json => {
             state.fetchingJson = false;
+            json = applyTreeLayout(json);//TODO add option to enable/disable tree layout
             state.onFinishLoading(json);
+
             this.graphData(json);
           });
         }

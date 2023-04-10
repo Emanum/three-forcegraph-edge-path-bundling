@@ -1,4 +1,3 @@
-import {GraphWeightedUndirectedAdjacencyList} from './PrimMST.js'
 
 //graphData.nodes = [{id: '0', weight: ''}
 //graphData.links = [{source: '0', target: '1', weight: '0.6'}]
@@ -8,33 +7,83 @@ function applyTreeLayout(graphData) {
     let components = findConnectedComponents(graphData);
     console.info(components)
     components.forEach(component => {
-        let mst = calc_mst(component);
+        let mst = prim(component);
         console.info(mst)
     })
 
 
     //find all links where mst_relevant is true
     let relevantLinks = graphData.links.filter(link => link.mst_relevant === true)
-    //find all nodes where mst_relevant is false
-    let irrelevantNodes = graphData.nodes.filter(node => node.mst_relevant === false)
+    //find all links where mst_relevant is false
+    let irrelevantLinks = graphData.links.filter(link => link.mst_relevant === false)
+
+    irrelevantLinks.forEach(link => {
+        link.originalWeight = link.weight
+        link.originalLinkWidth = link.linkWidth
+        link.weight = 0 //set weight to 0 to ignore for layout
+        link.linkWidth = 0 //set linkWidth to 0 to ignore for layout
+    })
+
+    // graphData.links.forEach(link => {
+    //     if (link.mst_relevant === false) {
+    //         //remove from graphData.links
+    //         graphData.links.splice(graphData.links.indexOf(link), 1)
+    //     }
+    // });
 
     return graphData
 }
 
-function calc_mst(subgraph) {
-    let g = new GraphWeightedUndirectedAdjacencyList();
-    let addedLinks = new Set();
-    subgraph.nodes.forEach(node => {
-        g.addNode(node.id)
-        node.links.forEach(link => {
-            if (!addedLinks.has(link)) {
-                addedLinks.add(link)
-                g.addEdge(link.source, link.target, link.weight)
+function prim(graph) {
+    const nodes = graph.nodes
+    const links = graph.links
+    const visited = {}
+    const mstLinks = []
+
+    // start with node 0
+    visited[nodes[0].id] = true
+
+    // loop until all nodes are visited
+    while (Object.keys(visited).length < nodes.length) {
+        let minWeight = Infinity
+        let minLink = null
+
+        // iterate through all visited nodes
+        for (const nodeId in visited) {
+            const node = nodes.find(n => n.id === nodeId)
+
+            // iterate through all links of visited nodes
+            for (const link of node.links) {
+                // ignore links that are already in the MST
+                if (link.mst_relevant) continue
+
+                // check if the link connects to an unvisited node
+                const otherNodeId = link.source === nodeId ? link.target : link.source
+                if (!visited[otherNodeId]) {
+                    // update minimum weight and minimum link
+                    if (link.weight < minWeight) {
+                        minWeight = link.weight
+                        minLink = link
+                    }
+                }
             }
-        })
-    })
-    return g.PrimMST(subgraph.nodes[0])
+        }
+
+        // mark the minimum link as part of the MST
+        if (minLink) {
+            minLink.mst_relevant = true
+            mstLinks.push(minLink)
+            visited[minLink.source] = true
+            visited[minLink.target] = true
+        }
+    }
+
+    // return the links required for the MST
+    return mstLinks
 }
+
+
+
 
 function connectGraphData(graphData) {
     let nodes = new Map()
@@ -78,6 +127,7 @@ function findConnectedComponents(graphData) {
         component.nodes.forEach(node => {
             node.links.forEach(link => {
                 if (!addedLinks.has(link)) {
+                    link.mst_relevant = false
                     addedLinks.add(link)
                     component.links.push(link)
                 }

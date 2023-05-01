@@ -24,12 +24,14 @@ function applyTreeLayout(graphData) {
         link.linkWidth = 0 //set linkWidth to 0 to ignore for layout
     })
 
+    // let valideLinks = []
     // graphData.links.forEach(link => {
-    //     if (link.mst_relevant === false) {
-    //         //remove from graphData.links
-    //         graphData.links.splice(graphData.links.indexOf(link), 1)
+    //     if (link.mst_relevant === true) {
+    //         // graphData.links.splice(graphData.links.indexOf(link), 1)
+    //         valideLinks.push(link)
     //     }
     // });
+    // graphData.links = valideLinks;
 
     return graphData
 }

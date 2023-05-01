@@ -84,6 +84,26 @@ export default Kapsule({
           fetch(jsonUrl).then(r => r.json()).then(json => {
             state.fetchingJson = false;
             json = applyTreeLayout(json);//TODO add option to enable/disable tree layout
+            // update Link force to newly adapted tree layout
+            const linkForce = state.d3ForceLayout.force('link');
+            if (linkForce) {
+              linkForce
+                  .id(d => d[state.nodeId])
+                  // .distance(link =>{
+                  //   if(link.mst_relevant){
+                  //     return 30;
+                  //   }
+                  //   return 900;
+                  // })
+                  .strength(link => {
+                    if(link.mst_relevant){
+                      return 1;
+                    }
+                    return 0;
+                  })
+                  .links(state.graphData.links);
+            }
+
             state.onFinishLoading(json);
 
             this.graphData(json);

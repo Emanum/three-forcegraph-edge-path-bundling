@@ -63,6 +63,7 @@ import { autoColorObjects, colorStr2Hex, colorAlpha } from './utils/color-utils'
 import getDagDepths from './utils/dagDepths';
 import {edgePathBundling} from "./utils/edge-path-utils.js";
 import {applyTreeLayout} from "./utils/tree-layout-utils.js";
+import {filterLink, updateLinkVisibility} from "./utils/linkVisUtils.js";
 //
 
 const DAG_LEVEL_NODE_RATIO = 2;
@@ -232,9 +233,13 @@ export default Kapsule({
       return this;
     },
     tickFrame: function(state) {
+      //console.log('tick');
       const isD3Sim = state.forceEngine !== 'ngraph';
 
       if (state.engineRunning) { layoutTick(); }
+      if (!state.engineRunning && state.linkBundling && state.linkBundling !== 'none') {
+        updateLinkVisibility(state.graphScene, state.graphData);
+      }
       updateArrows();
       updatePhotons();
 

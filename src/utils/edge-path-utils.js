@@ -1,4 +1,4 @@
-import {BufferGeometry, CatmullRomCurve3, Line, LineBasicMaterial, Vector3} from 'three';
+import {BufferGeometry, CatmullRomCurve3, Line, LineBasicMaterial, Mesh, TubeGeometry, Vector3} from 'three';
 
 import {dijkstra} from "./dijkstra.js";
 
@@ -162,6 +162,7 @@ function edgePathBundling(graphData, scene, options) {
             let line = new Line(geometry, material);
             scene.remove(edge.__lineObj);
             scene.add(line);
+            edge.__lineObj_edgePath = line;
             // edge.__lineObj = line; TODO analyze why when setting the new object to the edge, only a straight line is drawn
         }
 

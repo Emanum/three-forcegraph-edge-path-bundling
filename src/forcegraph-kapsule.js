@@ -63,7 +63,7 @@ import { autoColorObjects, colorStr2Hex, colorAlpha } from './utils/color-utils'
 import getDagDepths from './utils/dagDepths';
 import {edgePathBundling} from "./utils/edge-path-utils.js";
 import {applyTreeLayout} from "./utils/tree-layout-utils.js";
-import {filterLink, updateLinkVisibility} from "./utils/linkVisUtils.js";
+import {updateLinkVisibility} from "./utils/linkVisUtils.js";
 //
 
 const DAG_LEVEL_NODE_RATIO = 2;
